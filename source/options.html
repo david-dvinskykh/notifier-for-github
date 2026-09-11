@@ -49,6 +49,23 @@
 	<hr>
 
 	<section>
+		<h3>Pull Request Checks</h3>
+		<label>
+			<input type="checkbox" name="notifyBuildResults" data-request-permission="notifications">
+			Notify me when the checks of a watched pull request finish
+		</label>
+		<p class="small">Open a pull request on GitHub and press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> or use the “Watch checks” button in the pull request header to watch its checks. The shortcut can be changed on the browser's extension shortcuts page.</p>
+
+		<label>
+			<h4>Check interval</h4>
+			<input type="number" name="buildPollInterval" min="60" step="30" value="60">
+		</label>
+		<p class="small">How often the checks of watched pull requests are polled, in seconds. Browsers do not run extension timers more often than once a minute, so values below 60 are raised to 60.</p>
+	</section>
+
+	<hr>
+
+	<section>
 		<h3>Tab Handling</h3>
 		<label>
 			<input type="checkbox" name="reuseTabs" data-request-permission="tabs">

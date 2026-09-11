@@ -29,6 +29,28 @@ export async function isNotificationTargetPage(url) {
 	return /^(((issues|pull)\/\d+(\/(commits|files))?)|(commit\/.*)|(notifications$))/.test(repoPath);
 }
 
+export async function parsePullRequestUrl(url) {
+	let urlObject;
+
+	try {
+		urlObject = new URL(url);
+	} catch {
+		return;
+	}
+
+	if (urlObject.origin !== (await getGitHubOrigin())) {
+		return;
+	}
+
+	const match = urlObject.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/|$)/);
+	if (!match) {
+		return;
+	}
+
+	const [, owner, repository, number] = match;
+	return {owner, repository, number: Number(number)};
+}
+
 export function parseLinkHeader(header) {
 	const links = {};
 	for (const part of (header || '').split(',')) {

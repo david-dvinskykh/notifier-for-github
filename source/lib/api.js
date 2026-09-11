@@ -150,3 +150,20 @@ export async function getNotificationCount() {
 		lastModified
 	};
 }
+
+export async function getPullRequest({owner, repository, number}) {
+	const {json} = await makeApiRequest(`/repos/${owner}/${repository}/pulls/${number}`);
+	return json;
+}
+
+export async function getCombinedStatus({owner, repository, reference}) {
+	const {json} = await makeApiRequest(`/repos/${owner}/${repository}/commits/${reference}/status`);
+	return json;
+}
+
+export async function getCheckRuns({owner, repository, reference}) {
+	const {json} = await makeApiRequest(`/repos/${owner}/${repository}/commits/${reference}/check-runs`, {
+		per_page: 100 // eslint-disable-line camelcase
+	});
+	return json;
+}

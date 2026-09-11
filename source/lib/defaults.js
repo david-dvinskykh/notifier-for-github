@@ -71,6 +71,28 @@ export function getErrorSymbol(error) {
 	return errorSymbols.get(error.message) || errorSymbols.get('default');
 }
 
+export const buildNotificationTitles = new Map([
+	['success', 'All checks passed'],
+	['failure', 'Checks failed'],
+	['default', 'Checks finished']
+]);
+
+export function getBuildNotificationTitle(state) {
+	return buildNotificationTitles.get(state) || buildNotificationTitles.get('default');
+}
+
+export function getBuildStateSummary({total, passed, failed, failedNames = []}) {
+	if (failed === 0) {
+		return `${passed} of ${total} checks passed`;
+	}
+
+	const listedNames = failedNames.slice(0, 3).join(', ');
+	const remaining = failedNames.length - 3;
+	const rest = remaining > 0 ? ` and ${remaining} more` : '';
+
+	return `${failed} of ${total} checks failed: ${listedNames}${rest}`;
+}
+
 export function getNotificationReasonText(reason) {
 	return notificationReasons.get(reason) || '';
 }

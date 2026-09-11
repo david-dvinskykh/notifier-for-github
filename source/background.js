@@ -7,7 +7,18 @@ import {queryPermission} from './lib/permissions-service.js';
 import {getNotificationCount, getTabUrl} from './lib/api.js';
 import {renderCount, renderError, renderWarning} from './lib/badge.js';
 import {checkNotifications, openNotification} from './lib/notifications-service.js';
-import {isChrome, isNotificationTargetPage} from './util.js';
+import {
+	buildNotificationPrefix,
+	checkWatchedBuilds,
+	getWatchedBuildCount,
+	isWatchingBuild,
+	openBuildNotification,
+	toggleBuildWatch
+} from './lib/builds-service.js';
+import {isChrome, isNotificationTargetPage, parsePullRequestUrl} from './util.js';
+
+const updateAlarm = 'update';
+const buildsAlarm = 'builds';
 
 async function scheduleNextAlarm(interval) {
 	const intervalSetting = await localStore.get('interval') || 60;
@@ -20,8 +31,23 @@ async function scheduleNextAlarm(interval) {
 	// Delay less than 1 minute will cause a warning
 	const delayInMinutes = Math.max(Math.ceil(intervalValue / 60), 1);
 
-	browser.alarms.clearAll();
-	browser.alarms.create('update', {delayInMinutes});
+	browser.alarms.clear(updateAlarm);
+	browser.alarms.create(updateAlarm, {delayInMinutes});
+}
+
+async function scheduleBuildsAlarm() {
+	browser.alarms.clear(buildsAlarm);
+
+	if (await getWatchedBuildCount() === 0) {
+		return;
+	}
+
+	const {buildPollInterval} = await optionsStorage.getAll();
+
+	// Alarms cannot be scheduled more often than once a minute
+	const periodInMinutes = Math.max(Number(buildPollInterval) / 60, 1) || 1;
+
+	browser.alarms.create(buildsAlarm, {periodInMinutes, delayInMinutes: periodInMinutes});
 }
 
 async function handleLastModified(newLastModified) {
@@ -69,6 +95,55 @@ async function update() {
 	}
 }
 
+async function canNotifyBuildResults() {
+	const {notifyBuildResults} = await optionsStorage.getAll();
+
+	if (!notifyBuildResults) {
+		return false;
+	}
+
+	return queryPermission('notifications');
+}
+
+async function onAlarm(alarm) {
+	if (alarm && alarm.name === buildsAlarm) {
+		await checkWatchedBuilds();
+		await scheduleBuildsAlarm();
+		return;
+	}
+
+	await update();
+}
+
+async function toggleBuildWatchForTab(tab) {
+	if (!tab || !tab.url) {
+		return;
+	}
+
+	const pullRequest = await parsePullRequestUrl(tab.url);
+	if (!pullRequest) {
+		return;
+	}
+
+	const {watching} = await toggleBuildWatch({...pullRequest, title: tab.title});
+	await scheduleBuildsAlarm();
+
+	try {
+		await browser.tabs.sendMessage(tab.id, {action: 'build-watch-changed', watching});
+	} catch {
+		// The tab has no content script, the badge state is enough
+	}
+}
+
+async function onCommand(command) {
+	if (command !== 'watch-build') {
+		return;
+	}
+
+	const [tab] = await browser.tabs.query({active: true, currentWindow: true});
+	await toggleBuildWatchForTab(tab);
+}
+
 async function handleBrowserActionClick() {
 	await openTab(await getTabUrl());
 }
@@ -79,10 +154,58 @@ function handleInstalled(details) {
 	}
 }
 
-async function onMessage(message) {
-	if (message.action === 'update') {
-		await addHandlers();
-		await update();
+async function handleUpdateMessage() {
+	await addHandlers();
+	await update();
+}
+
+async function handleToggleBuildWatch(message, sender) {
+	// The page the message came from decides which pull request is watched,
+	// so a page on another GitHub instance cannot watch builds on this one
+	const pullRequest = await parsePullRequestUrl(sender.url);
+	if (!pullRequest) {
+		return {watching: false};
+	}
+
+	const {title} = message.pullRequest || {};
+	const result = await toggleBuildWatch({...pullRequest, title});
+	await scheduleBuildsAlarm();
+
+	if (result.watching && !await canNotifyBuildResults()) {
+		// Watching is pointless until the results can be shown
+		browser.runtime.openOptionsPage();
+	}
+
+	return result;
+}
+
+async function handleBuildWatchState(sender) {
+	const pullRequest = await parsePullRequestUrl(sender.url);
+	if (!pullRequest) {
+		return {watching: false};
+	}
+
+	return {watching: await isWatchingBuild(pullRequest)};
+}
+
+function onMessage(message, sender) {
+	switch (message.action) {
+		case 'update': {
+			return handleUpdateMessage();
+		}
+
+		case 'toggle-build-watch': {
+			return handleToggleBuildWatch(message, sender);
+		}
+
+		case 'build-watch-state': {
+			return handleBuildWatchState(sender);
+		}
+
+		// Other messages, like the offscreen audio playback, are handled elsewhere
+		default: {
+			return undefined;
+		}
 	}
 }
 
@@ -98,6 +221,11 @@ async function onTabUpdated(tabId, changeInfo, tab) {
 }
 
 function onNotificationClick(id) {
+	if (id.startsWith(buildNotificationPrefix)) {
+		openBuildNotification(id);
+		return;
+	}
+
 	openNotification(id);
 }
 
@@ -130,8 +258,9 @@ async function addHandlers() {
 }
 
 async function init() {
-	browser.alarms.onAlarm.addListener(update);
+	browser.alarms.onAlarm.addListener(onAlarm);
 	scheduleNextAlarm();
+	scheduleBuildsAlarm();
 
 	browser.runtime.onMessage.addListener(onMessage);
 	browser.runtime.onInstalled.addListener(handleInstalled);
@@ -142,6 +271,7 @@ async function init() {
 	}
 
 	browser.action.onClicked.addListener(handleBrowserActionClick);
+	browser.commands.onCommand.addListener(onCommand);
 
 	await createOffscreenDocument();
 	addHandlers();

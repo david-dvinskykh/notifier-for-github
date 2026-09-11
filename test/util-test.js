@@ -1,5 +1,5 @@
 import test from 'ava';
-import {isChrome, isNotificationTargetPage, parseLinkHeader, parseFullName} from '../source/util.js';
+import {isChrome, isNotificationTargetPage, parseLinkHeader, parseFullName, parsePullRequestUrl} from '../source/util.js';
 
 test.beforeEach(t => {
 	t.context.defaultOptions = {
@@ -115,4 +115,24 @@ test('parsing a falsy link header', t => {
 test('parse full repository name', t => {
 	t.deepEqual(parseFullName('foo/bar'), {owner: 'foo', repository: 'bar'});
 	t.deepEqual(parseFullName('bar'), {owner: 'bar', repository: undefined});
+});
+
+test.serial('parsePullRequestUrl only parses pull request pages of the configured instance', async t => {
+	t.is(await parsePullRequestUrl(''), undefined);
+	t.is(await parsePullRequestUrl('https://example.com/user/repo/pull/42'), undefined);
+	t.is(await parsePullRequestUrl('https://github.com/user/repo'), undefined);
+	t.is(await parsePullRequestUrl('https://github.com/user/repo/issues/42'), undefined);
+	t.is(await parsePullRequestUrl('https://github.com/user/repo/pull/notanumber'), undefined);
+
+	t.deepEqual(await parsePullRequestUrl('https://github.com/user/repo/pull/42'), {
+		owner: 'user',
+		repository: 'repo',
+		number: 42
+	});
+
+	t.deepEqual(await parsePullRequestUrl('https://github.com/user/repo/pull/42/files'), {
+		owner: 'user',
+		repository: 'repo',
+		number: 42
+	});
 });

@@ -9,7 +9,9 @@ const optionsStorage = new OptionsSync({
 		onlyParticipating: false,
 		reuseTabs: false,
 		updateCountOnNavigation: false,
-		filterNotifications: false
+		filterNotifications: false,
+		notifyBuildResults: false,
+		buildPollInterval: 60
 	},
 	migrations: [
 		OptionsSync.migrations.removeUnused
