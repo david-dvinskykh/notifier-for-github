@@ -17,7 +17,8 @@
 	"permissions": [
 		"alarms",
 		"storage",
-		"offscreen"
+		"offscreen",
+		"activeTab"
 	],
 	"optional_permissions": [
 		"tabs",
@@ -26,6 +27,25 @@
 	"background": {
 		"service_worker": "background.js",
 		"type": "module"
+	},
+	"content_scripts": [
+		{
+			"matches": [
+				"https://github.com/*"
+			],
+			"js": [
+				"content.js"
+			],
+			"run_at": "document_idle"
+		}
+	],
+	"commands": {
+		"watch-build": {
+			"suggested_key": {
+				"default": "Alt+Shift+B"
+			},
+			"description": "Watch the checks of the current pull request"
+		}
 	},
 	"action": {
 		"default_icon": "icon-toolbar.png"

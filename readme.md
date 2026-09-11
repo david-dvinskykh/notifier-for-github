@@ -18,6 +18,7 @@ Checks for new GitHub notifications every minute, shows the number of notificati
 - [Notification count in the toolbar icon.](#notification-count)
 - [Desktop notifications.](#desktop-notifications)
 - [Filter notifications](#filtering-notifications) from repositories you wish to see.
+- [Watch the checks of a pull request](#pull-request-checks) and get notified when they finish.
 - [GitHub Enterprise support.](#github-enterprise-support)
 - Click the toolbar icon to go to the GitHub notifications page.
 - Option to show only unread count for issues you're participating in.
@@ -84,6 +85,16 @@ You can opt-in to receive desktop notifications for new notifications on GitHub.
 ![Filtering Notifications](media/screenshot-filter.png)
 
 If you have [desktop notifications](#desktop-notifications) enabled as mentioned above, you can also filter which repositories you wish to receive these notifications from. You can do this by only selecting the repositories (that grouped by user/organization) in the options menu.
+
+### Pull Request Checks
+
+Open a pull request on GitHub and press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>, or click the "Watch checks" button next to the pull request title, to start watching its checks. The extension then polls the commit statuses and check runs of the pull request's head commit and shows a desktop notification once none of them are running anymore, listing how many checks passed and which ones failed. Clicking the notification opens the checks tab of the pull request.
+
+The watch is removed as soon as the result is reported, and pressing the shortcut or clicking the button again stops watching. When the branch receives a new push, the checks of the new head commit are watched instead.
+
+Enable "Notify me when the checks of a watched pull request finish" in the options to receive these notifications; it asks for the `notifications` permission. The polling interval defaults to 60 seconds and can be changed in the same section. Browsers do not run extension alarms more often than once a minute, so lower values are raised to 60 seconds.
+
+The keyboard shortcut can be changed on your browser's extension shortcuts page (`chrome://extensions/shortcuts` in Chrome). The in-page button is only added on github.com; on GitHub Enterprise use the keyboard shortcut.
 
 ### GitHub Enterprise support
 
