@@ -1,7 +1,7 @@
 import browser from 'webextension-polyfill';
 import optionsStorage from './options-storage.js';
 import initRepositoriesForm from './repositories.js';
-import {queryPermission, requestPermission} from './lib/permissions-service.js';
+import {requestPermission} from './lib/permissions-service.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
 	try {
@@ -24,20 +24,35 @@ function initTestNotification() {
 	const button = document.querySelector('#test-notification');
 	const result = document.querySelector('#test-notification-result');
 
+	const messages = {
+		permission: 'The notifications permission was not granted.',
+		blocked: 'Notifications from extensions are turned off in the browser or in the operating system. Enable them for Chrome and try again.',
+		disabled: 'Notifications for check results are switched off above.'
+	};
+
 	button.addEventListener('click', async () => {
-		button.disabled = true;
 		result.textContent = '';
 
+		// `permissions.request` only works inside the click itself, so nothing
+		// may be awaited before it
+		const permissionRequest = requestPermission('notifications');
+		button.disabled = true;
+
 		try {
-			if (!await queryPermission('notifications') && !await requestPermission('notifications')) {
-				result.textContent = ' The notifications permission was not granted.';
+			if (!await permissionRequest) {
+				result.textContent = ` ${messages.permission}`;
 				return;
 			}
 
 			const response = await browser.runtime.sendMessage({action: 'test-build-notification'});
-			result.textContent = response && response.shown ?
-				' Sent. If nothing appeared, check the notification settings of your operating system.' :
-				' The browser did not show it, see the extension log for the reason.';
+
+			if (response && response.shown) {
+				result.textContent = ' Sent. If nothing appeared, look in the notification centre of your operating system.';
+				return;
+			}
+
+			const reason = response && response.reason;
+			result.textContent = ` ${messages[reason] || (response && response.message) || 'The browser did not show it, see the extension log for the reason.'}`;
 		} catch (error) {
 			console.error(error);
 			result.textContent = ` Failed: ${error.message}`;

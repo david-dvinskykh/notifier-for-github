@@ -162,6 +162,32 @@ export async function toggleBuildWatch(pullRequest) {
 	return {watching: true};
 }
 
+// Chrome reports here whether the user or the operating system blocks
+// notifications from extensions; other browsers do not implement it
+async function getNotificationPermissionLevel() {
+	try {
+		const level = await browser.notifications.getPermissionLevel();
+		return typeof level === 'string' ? level : 'granted';
+	} catch (error) {
+		logError(`Could not read the notification permission level (${error.message})`);
+		return 'granted';
+	}
+}
+
+async function playNotificationSound() {
+	try {
+		await browser.runtime.sendMessage({
+			action: 'play',
+			options: {
+				source: 'sounds/bell.ogg',
+				volume: 1
+			}
+		});
+	} catch (error) {
+		logError(`Could not play the notification sound (${error.message})`);
+	}
+}
+
 export function getBuildNotificationObject(build, summary) {
 	return {
 		title: getBuildNotificationTitle(summary.state),
@@ -180,24 +206,27 @@ export async function showBuildNotification(build, summary, {ignoreSetting = fal
 		return {shown: false, reason: 'disabled'};
 	}
 
-	if (playNotifSound) {
-		await browser.runtime.sendMessage({
-			action: 'play',
-			options: {
-				source: 'sounds/bell.ogg',
-				volume: 1
-			}
-		});
-	}
-
 	if (!await queryPermission('notifications')) {
 		log('The notifications permission is missing, nothing shown');
 		return {shown: false, reason: 'permission'};
 	}
 
+	const permissionLevel = await getNotificationPermissionLevel();
+	if (permissionLevel !== 'granted') {
+		log(`The browser reports notifications as "${permissionLevel}", nothing shown`);
+		return {shown: false, reason: 'blocked'};
+	}
+
 	const notificationId = `${buildNotificationPrefix}${getBuildKey(build)}`;
 	await browser.notifications.create(notificationId, getBuildNotificationObject(build, summary));
 	await localStore.set(notificationId, {url: build.checksUrl || `${build.url}/checks`});
+	log(`Notification shown: ${notificationId}`);
+
+	// The sound comes last: a missing offscreen document must not swallow the
+	// notification itself
+	if (playNotifSound) {
+		await playNotificationSound();
+	}
 
 	return {shown: true};
 }
