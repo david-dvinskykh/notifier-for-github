@@ -61,6 +61,9 @@ test.beforeEach(t => {
 
 	browser.notifications.create.resolves('id');
 	browser.notifications.getPermissionLevel.returns('granted');
+	browser.notifications.getAll.callsFake(async () => Object.fromEntries(
+		browser.notifications.create.args.map(([id]) => [id, {}])
+	));
 	browser.notifications.clear.resolves(true);
 	browser.permissions.contains.resolves(true);
 	browser.runtime.getURL.returns('icon-notif.png');
@@ -297,4 +300,32 @@ test.serial('a failing notification sound does not swallow the notification', as
 
 	t.true(result.shown);
 	t.is(browser.notifications.create.callCount, 1);
+});
+
+test.serial('a finished build leaves its result for the toolbar icon', async t => {
+	await builds.watchBuild(pullRequest);
+
+	fakeApiResponses({
+		'/pulls/42': pullRequestResponse,
+		'/status': {statuses: [{context: 'ci/lint', state: 'success'}]},
+		'/check-runs': {check_runs: [{name: 'test', status: 'completed', conclusion: 'failure'}]} // eslint-disable-line camelcase
+	});
+
+	await builds.checkWatchedBuilds();
+
+	const result = await builds.getPendingBuildResult();
+	t.is(result.state, 'failure');
+	t.is(result.url, 'https://github.com/user/repo/pull/42/checks');
+	t.true(result.title.includes('user/repo#42'));
+	t.true(result.title.includes('test'));
+
+	await builds.clearPendingBuildResult();
+	t.is(await builds.getPendingBuildResult(), undefined);
+});
+
+test.serial('the test notification reports whether the browser accepted it', async t => {
+	const result = await builds.showTestBuildNotification();
+
+	t.true(result.shown);
+	t.true(result.accepted);
 });

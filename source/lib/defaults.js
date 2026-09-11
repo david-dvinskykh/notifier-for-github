@@ -40,7 +40,14 @@ export const warningSymbols = new Map([
 export const colors = new Map([
 	['default', [3, 102, 214, 255]],
 	['error', [203, 36, 49, 255]],
-	['warning', [245, 159, 0, 255]]
+	['warning', [245, 159, 0, 255]],
+	['success', [35, 134, 54, 255]]
+]);
+
+export const buildBadgeSymbols = new Map([
+	['success', '\u2713'],
+	['failure', '\u2717'],
+	['default', '!']
 ]);
 
 export function getBadgeDefaultColor() {
@@ -53,6 +60,14 @@ export function getBadgeErrorColor() {
 
 export function getBadgeWarningColor() {
 	return colors.get('warning');
+}
+
+export function getBuildBadgeSymbol(state) {
+	return buildBadgeSymbols.get(state) || buildBadgeSymbols.get('default');
+}
+
+export function getBuildBadgeColor(state) {
+	return colors.get(state === 'success' ? 'success' : 'error');
 }
 
 export function getWarningTitle(warning) {

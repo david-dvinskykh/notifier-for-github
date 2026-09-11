@@ -96,7 +96,9 @@ Enable "Notify me when the checks of a watched pull request finish" in the optio
 
 The keyboard shortcut can be changed on your browser's extension shortcuts page (`chrome://extensions/shortcuts` in Chrome). The in-page button is only added on github.com; on GitHub Enterprise use the keyboard shortcut.
 
-To check that notifications reach you before relying on them, use the "Send a test notification" button in the same options section. It asks for the `notifications` permission if needed and reports what happened, so a notification blocked by the operating system can be told apart from one the extension never sent.
+The result also lands on the toolbar icon: a green ✓ or a red ✗ replaces the notification count until you click the icon, which opens the checks of that pull request and restores the count. This is the fallback when the operating system hides notifications from the browser, and it takes precedence over the count and over error badges.
+
+To check that notifications reach you before relying on them, use the "Send a test notification" button in the same options section. It asks for the `notifications` permission if needed and reports what happened. The extension asks the browser afterwards whether the notification is in its list, which separates "the browser refused it" from "the desktop is hiding it"; in the second case the toolbar icon still carries the result.
 
 #### Reading the log
 

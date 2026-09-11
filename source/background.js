@@ -5,11 +5,13 @@ import localStore from './lib/local-store.js';
 import {openTab} from './lib/tabs-service.js';
 import {queryPermission} from './lib/permissions-service.js';
 import {getNotificationCount, getTabUrl} from './lib/api.js';
-import {renderCount, renderError, renderWarning} from './lib/badge.js';
+import {renderBuildResult, renderCount, renderError, renderWarning} from './lib/badge.js';
 import {checkNotifications, openNotification} from './lib/notifications-service.js';
 import {
 	buildNotificationPrefix,
 	checkWatchedBuilds,
+	clearPendingBuildResult,
+	getPendingBuildResult,
 	getWatchedBuildCount,
 	isWatchingBuild,
 	openBuildNotification,
@@ -67,23 +69,37 @@ async function handleLastModified(newLastModified) {
 	}
 }
 
+// A finished build owns the toolbar icon until it is opened, so the result is
+// never lost when desktop notifications do not arrive
+async function renderBadge(fallback) {
+	const pendingResult = await getPendingBuildResult();
+
+	if (pendingResult) {
+		renderBuildResult(pendingResult);
+		return;
+	}
+
+	fallback();
+}
+
 async function updateNotificationCount() {
 	const response = await getNotificationCount();
 	const {count, interval, lastModified} = response;
 
-	renderCount(count);
+	await renderBadge(() => renderCount(count));
+
 	scheduleNextAlarm(interval);
 	handleLastModified(lastModified);
 }
 
-function handleError(error) {
+async function handleError(error) {
 	scheduleNextAlarm();
-	renderError(error);
+	await renderBadge(() => renderError(error));
 }
 
-function handleOfflineStatus() {
+async function handleOfflineStatus() {
 	scheduleNextAlarm();
-	renderWarning('offline');
+	await renderBadge(() => renderWarning('offline'));
 }
 
 async function update() {
@@ -91,10 +107,10 @@ async function update() {
 		try {
 			await updateNotificationCount();
 		} catch (error) {
-			handleError(error);
+			await handleError(error);
 		}
 	} else {
-		handleOfflineStatus();
+		await handleOfflineStatus();
 	}
 }
 
@@ -112,6 +128,8 @@ async function onAlarm(alarm) {
 	if (alarm && alarm.name === buildsAlarm) {
 		await checkWatchedBuilds();
 		await scheduleBuildsAlarm();
+		await renderBadge(() => {});
+
 		return;
 	}
 
@@ -163,6 +181,15 @@ async function onCommand(command) {
 }
 
 async function handleBrowserActionClick() {
+	const pendingResult = await getPendingBuildResult();
+
+	if (pendingResult) {
+		await clearPendingBuildResult();
+		await openTab(pendingResult.url);
+		await update();
+		return;
+	}
+
 	await openTab(await getTabUrl());
 }
 
@@ -199,7 +226,9 @@ async function handleToggleBuildWatch(message, sender) {
 
 async function handleTestNotification() {
 	try {
-		return await showTestBuildNotification();
+		const result = await showTestBuildNotification();
+		await renderBadge(() => {});
+		return result;
 	} catch (error) {
 		console.error(error);
 		return {shown: false, reason: 'error', message: error.message};

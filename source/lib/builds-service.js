@@ -8,6 +8,7 @@ import {queryPermission} from './permissions-service.js';
 import {openTab} from './tabs-service.js';
 
 const watchedBuildsKey = 'watchedBuilds';
+const pendingResultKey = 'pendingBuildResult';
 
 export const buildNotificationPrefix = 'github-notifier-build-';
 
@@ -174,6 +175,18 @@ async function getNotificationPermissionLevel() {
 	}
 }
 
+// Chrome keeps created notifications in a list until they are dismissed, so
+// this separates "the browser refused it" from "the desktop is hiding it"
+async function isNotificationKnown(notificationId) {
+	try {
+		const all = await browser.notifications.getAll();
+		return Boolean(all && notificationId in all);
+	} catch (error) {
+		logError(`Could not list the shown notifications (${error.message})`);
+		return false;
+	}
+}
+
 async function playNotificationSound() {
 	try {
 		await browser.runtime.sendMessage({
@@ -186,6 +199,28 @@ async function playNotificationSound() {
 	} catch (error) {
 		logError(`Could not play the notification sound (${error.message})`);
 	}
+}
+
+// The toolbar icon carries the result too, so a result is never lost when the
+// operating system hides desktop notifications
+export async function getPendingBuildResult() {
+	return localStore.get(pendingResultKey);
+}
+
+export async function clearPendingBuildResult() {
+	return localStore.remove(pendingResultKey);
+}
+
+export async function setPendingBuildResult(build, summary) {
+	const result = {
+		key: getBuildKey(build),
+		state: summary.state,
+		title: `${getBuildNotificationTitle(summary.state)} — ${getBuildKey(build)}: ${getBuildStateSummary(summary)}`,
+		url: build.checksUrl || `${build.url}/checks`
+	};
+
+	await localStore.set(pendingResultKey, result);
+	return result;
 }
 
 export function getBuildNotificationObject(build, summary) {
@@ -220,7 +255,9 @@ export async function showBuildNotification(build, summary, {ignoreSetting = fal
 	const notificationId = `${buildNotificationPrefix}${getBuildKey(build)}`;
 	await browser.notifications.create(notificationId, getBuildNotificationObject(build, summary));
 	await localStore.set(notificationId, {url: build.checksUrl || `${build.url}/checks`});
-	log(`Notification shown: ${notificationId}`);
+
+	const accepted = await isNotificationKnown(notificationId);
+	log(`Notification created: ${notificationId} (the browser ${accepted ? 'lists it' : 'does not list it'})`);
 
 	// The sound comes last: a missing offscreen document must not swallow the
 	// notification itself
@@ -228,7 +265,7 @@ export async function showBuildNotification(build, summary, {ignoreSetting = fal
 		await playNotificationSound();
 	}
 
-	return {shown: true};
+	return {shown: true, accepted};
 }
 
 export async function showTestBuildNotification() {
@@ -249,6 +286,7 @@ export async function showTestBuildNotification() {
 	});
 
 	log('Sending a test notification');
+	await setPendingBuildResult(build, summary);
 	return showBuildNotification(build, summary, {ignoreSetting: true});
 }
 
@@ -299,6 +337,7 @@ async function checkWatchedBuild(build) {
 
 	log(`${key}: ${getBuildStateSummary(summary)} — ${getBuildNotificationTitle(summary.state).toLowerCase()}`);
 
+	await setPendingBuildResult(updatedBuild, summary);
 	await showBuildNotification(updatedBuild, summary);
 	return undefined;
 }
