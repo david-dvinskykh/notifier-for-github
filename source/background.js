@@ -19,6 +19,7 @@ import {
 	toggleBuildWatch
 } from './lib/builds-service.js';
 import {ensureOffscreenDocument} from './lib/offscreen-service.js';
+import {forgetResultWindow} from './lib/toast-window.js';
 import {isChrome, isNotificationTargetPage, parsePullRequestUrl} from './util.js';
 
 const updateAlarm = 'update';
@@ -335,6 +336,10 @@ async function init() {
 
 	browser.action.onClicked.addListener(handleBrowserActionClick);
 	browser.commands.onCommand.addListener(onCommand);
+
+	if (browser.windows) {
+		browser.windows.onRemoved.addListener(forgetResultWindow);
+	}
 
 	await ensureOffscreenDocument();
 	addHandlers();

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Pull request checks</title>
+	<style>
+		:root {
+			color-scheme: light dark;
+			--bg: #ffffff;
+			--fg: #1f2328;
+			--muted: #59636e;
+			--line: #d1d9e0;
+			--accent: #0969da;
+		}
+
+		@media (prefers-color-scheme: dark) {
+			:root {
+				--bg: #0d1117;
+				--fg: #f0f6fc;
+				--muted: #9198a1;
+				--line: #3d444d;
+			}
+		}
+
+		html,
+		body {
+			height: 100%;
+			margin: 0;
+		}
+
+		body {
+			display: flex;
+			flex-direction: column;
+			background: var(--bg);
+			color: var(--fg);
+			font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+			cursor: pointer;
+			user-select: none;
+		}
+
+		.accent {
+			flex: none;
+			height: 5px;
+			background: var(--accent);
+		}
+
+		main {
+			flex: 1;
+			padding: 12px 14px;
+			overflow: hidden;
+		}
+
+		h1 {
+			margin: 0 0 2px;
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.repository {
+			margin: 0 0 6px;
+			font-size: 13px;
+			font-weight: 600;
+			color: var(--accent);
+			overflow-wrap: anywhere;
+		}
+
+		.summary {
+			margin: 0;
+			font-size: 11px;
+			color: var(--muted);
+			overflow-wrap: anywhere;
+		}
+
+		footer {
+			display: flex;
+			flex: none;
+			gap: 8px;
+			justify-content: space-between;
+			padding: 6px 14px;
+			border-top: 1px solid var(--line);
+			font-size: 11px;
+			color: var(--muted);
+		}
+
+		.bar {
+			flex: none;
+			width: 100%;
+			height: 3px;
+			background: var(--accent);
+			transition: width 250ms linear;
+		}
+	</style>
+</head>
+<body>
+	<div class="accent" id="accent"></div>
+	<main>
+		<h1 id="state">Checks finished</h1>
+		<p class="repository" id="repository"></p>
+		<p class="summary" id="summary"></p>
+	</main>
+	<footer>
+		<span>Click to open the checks</span>
+		<span id="count"></span>
+	</footer>
+	<div class="bar" id="bar"></div>
+	<script type="module" src="toast.js"></script>
+</body>
+</html>

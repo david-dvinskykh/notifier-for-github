@@ -6,6 +6,7 @@ import {log, logChecks, logError} from './logger.js';
 import localStore from './local-store.js';
 import {ensureOffscreenDocument} from './offscreen-service.js';
 import {queryPermission} from './permissions-service.js';
+import {showResultWindow} from './toast-window.js';
 import {openTab} from './tabs-service.js';
 
 const watchedBuildsKey = 'watchedBuilds';
@@ -213,14 +214,23 @@ export async function clearPendingBuildResult() {
 	return localStore.remove(pendingResultKey);
 }
 
-export async function setPendingBuildResult(build, summary) {
-	const result = {
-		key: getBuildKey(build),
+export function createBuildResult(build, summary) {
+	const key = getBuildKey(build);
+	const heading = getBuildNotificationTitle(summary.state);
+	const text = getBuildStateSummary(summary);
+
+	return {
+		key,
 		state: summary.state,
-		title: `${getBuildNotificationTitle(summary.state)} — ${getBuildKey(build)}: ${getBuildStateSummary(summary)}`,
+		heading,
+		summary: text,
+		title: `${heading} — ${key}: ${text}`,
 		url: build.checksUrl || `${build.url}/checks`
 	};
+}
 
+export async function setPendingBuildResult(build, summary) {
+	const result = createBuildResult(build, summary);
 	await localStore.set(pendingResultKey, result);
 	return result;
 }
@@ -235,14 +245,7 @@ export function getBuildNotificationObject(build, summary) {
 	};
 }
 
-export async function showBuildNotification(build, summary, {ignoreSetting = false} = {}) {
-	const {playNotifSound, notifyBuildResults} = await optionsStorage.getAll();
-
-	if (!notifyBuildResults && !ignoreSetting) {
-		log('Notifications for check results are disabled in the options, nothing shown');
-		return {shown: false, reason: 'disabled'};
-	}
-
+async function showDesktopNotification(build, summary) {
 	if (!await queryPermission('notifications')) {
 		log('The notifications permission is missing, nothing shown');
 		return {shown: false, reason: 'permission'};
@@ -261,13 +264,38 @@ export async function showBuildNotification(build, summary, {ignoreSetting = fal
 	const accepted = await isNotificationKnown(notificationId);
 	log(`Notification created: ${notificationId} (the browser ${accepted ? 'lists it' : 'does not list it'})`);
 
+	return {shown: true, via: 'desktop', accepted};
+}
+
+export async function showBuildNotification(build, summary, {ignoreSetting = false} = {}) {
+	const {playNotifSound, notifyBuildResults, buildNotificationStyle} = await optionsStorage.getAll();
+
+	if (!notifyBuildResults && !ignoreSetting) {
+		log('Notifications for check results are disabled in the options, nothing shown');
+		return {shown: false, reason: 'disabled'};
+	}
+
+	const style = buildNotificationStyle || 'desktop';
+	const outcomes = [];
+
+	if (style === 'window' || style === 'both') {
+		const result = createBuildResult(build, summary);
+		outcomes.push(await showResultWindow({...result, title: result.heading}));
+	}
+
+	if (style === 'desktop' || style === 'both') {
+		outcomes.push(await showDesktopNotification(build, summary));
+	}
+
+	const shown = outcomes.find(outcome => outcome.shown);
+
 	// The sound comes last: a missing offscreen document must not swallow the
 	// notification itself
-	if (playNotifSound) {
+	if (playNotifSound && shown) {
 		await playNotificationSound();
 	}
 
-	return {shown: true, accepted};
+	return shown || outcomes[0] || {shown: false, reason: 'disabled'};
 }
 
 export async function showTestBuildNotification() {
