@@ -268,7 +268,7 @@ async function showDesktopNotification(build, summary) {
 }
 
 export async function showBuildNotification(build, summary, {ignoreSetting = false} = {}) {
-	const {playNotifSound, notifyBuildResults, buildNotificationStyle} = await optionsStorage.getAll();
+	const {playBuildSound, notifyBuildResults, buildNotificationStyle} = await optionsStorage.getAll();
 
 	if (!notifyBuildResults && !ignoreSetting) {
 		log('Notifications for check results are disabled in the options, nothing shown');
@@ -289,9 +289,10 @@ export async function showBuildNotification(build, summary, {ignoreSetting = fal
 
 	const shown = outcomes.find(outcome => outcome.shown);
 
-	// The sound comes last: a missing offscreen document must not swallow the
-	// notification itself
-	if (playNotifSound && shown) {
+	// The sound of the checks is its own setting, so it can be heard while the
+	// sound of the notification count stays off. It comes last: a missing
+	// offscreen document must not swallow the notification itself
+	if (playBuildSound && shown) {
 		await playNotificationSound();
 	}
 
