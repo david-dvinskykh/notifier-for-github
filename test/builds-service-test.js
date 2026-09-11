@@ -291,7 +291,7 @@ test.serial('a failing notification sound does not swallow the notification', as
 				token: 'a1b2c3d4e5f6g7h8i9j0a1b2c3d4e5f6g7h8i9j0',
 				rootUrl: 'https://github.com/',
 				notifyBuildResults: true,
-				playNotifSound: true
+				playBuildSound: true
 			}
 		});
 	});
@@ -397,4 +397,47 @@ test.serial('the desktop style is used when nothing is chosen', async t => {
 	t.is(result.via, 'desktop');
 	t.is(browser.windows.create.callCount, 0);
 	t.is(browser.notifications.create.callCount, 1);
+});
+
+function useSoundOptions(options) {
+	browser.storage.sync.get.callsFake((key, cb) => {
+		cb({
+			options: {
+				token: 'a1b2c3d4e5f6g7h8i9j0a1b2c3d4e5f6g7h8i9j0',
+				rootUrl: 'https://github.com/',
+				notifyBuildResults: true,
+				...options
+			}
+		});
+	});
+}
+
+function playedSound() {
+	return browser.runtime.sendMessage.args.some(([message]) => message && message.action === 'play');
+}
+
+test.serial('the checks sound plays when its own setting is on', async t => {
+	useSoundOptions({playBuildSound: true, playNotifSound: false});
+
+	await builds.showTestBuildNotification();
+
+	t.true(playedSound());
+});
+
+test.serial('the sound of the notification count does not play for the checks', async t => {
+	useSoundOptions({playBuildSound: false, playNotifSound: true});
+
+	await builds.showTestBuildNotification();
+
+	t.false(playedSound());
+});
+
+test.serial('no sound is played when the result could not be shown', async t => {
+	useSoundOptions({playBuildSound: true});
+	browser.notifications.getPermissionLevel.returns('denied');
+
+	const result = await builds.showTestBuildNotification();
+
+	t.false(result.shown);
+	t.false(playedSound());
 });

@@ -12,6 +12,7 @@ const optionsStorage = new OptionsSync({
 		filterNotifications: false,
 		notifyBuildResults: false,
 		buildNotificationStyle: 'desktop',
+		playBuildSound: false,
 		buildPollInterval: 60
 	},
 	migrations: [
