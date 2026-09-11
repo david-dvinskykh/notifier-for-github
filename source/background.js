@@ -141,7 +141,22 @@ async function onCommand(command) {
 	}
 
 	const [tab] = await browser.tabs.query({active: true, currentWindow: true});
-	await toggleBuildWatchForTab(tab);
+	if (!tab) {
+		return;
+	}
+
+	if (tab.url) {
+		await toggleBuildWatchForTab(tab);
+		return;
+	}
+
+	// Without the `tabs` permission the URL of the tab is not readable here,
+	// so the page is asked to start the toggle itself
+	try {
+		await browser.tabs.sendMessage(tab.id, {action: 'request-build-watch-toggle'});
+	} catch {
+		// No content script on this page, nothing to watch
+	}
 }
 
 async function handleBrowserActionClick() {

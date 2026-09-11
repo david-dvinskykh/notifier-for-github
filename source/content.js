@@ -1,14 +1,14 @@
 import browser from 'webextension-polyfill';
+import {findButtonAnchor, getPullRequestNumber as parseNumber, titleTextSelectors} from './lib/pr-header.js';
 
 const buttonClass = 'notifier-for-github-watch-build';
 
 function getPullRequestNumber() {
-	const match = location.pathname.match(/\/pull\/(\d+)(?:\/|$)/);
-	return match ? Number(match[1]) : undefined;
+	return parseNumber(location.pathname);
 }
 
 function getPullRequestTitle() {
-	const titleElement = document.querySelector('.js-issue-title, [data-testid="issue-title"]');
+	const titleElement = document.querySelector(titleTextSelectors);
 	return titleElement ? titleElement.textContent.trim() : '';
 }
 
@@ -17,8 +17,8 @@ function renderButton(button, watching) {
 	button.title = watching ?
 		'Stop watching the checks of this pull request' :
 		'Get a desktop notification when the checks of this pull request finish';
-	button.classList.toggle('selected', watching);
 	button.setAttribute('aria-pressed', String(watching));
+	button.style.color = watching ? 'var(--fgColor-accent, #0969da)' : 'var(--fgColor-default, #1f2328)';
 }
 
 async function sendMessage(action) {
@@ -40,8 +40,7 @@ async function sendMessage(action) {
 	});
 }
 
-async function onButtonClick(event) {
-	const button = event.currentTarget;
+async function toggleWatch(button) {
 	button.disabled = true;
 
 	try {
@@ -58,7 +57,24 @@ function createButton() {
 	const button = document.createElement('button');
 	button.type = 'button';
 	button.className = `btn btn-sm ${buttonClass}`;
-	button.addEventListener('click', onButtonClick);
+
+	// Inline styles keep the button readable in both GitHub interfaces,
+	// whose button classes differ
+	Object.assign(button.style, {
+		alignSelf: 'center',
+		marginLeft: '8px',
+		padding: '3px 12px',
+		fontSize: '12px',
+		fontWeight: '500',
+		lineHeight: '20px',
+		whiteSpace: 'nowrap',
+		border: '1px solid var(--borderColor-default, #d1d9e0)',
+		borderRadius: 'var(--borderRadius-medium, 6px)',
+		background: 'var(--bgColor-default, #ffffff)',
+		cursor: 'pointer'
+	});
+
+	button.addEventListener('click', () => toggleWatch(button));
 	renderButton(button, false);
 	return button;
 }
@@ -68,26 +84,37 @@ async function addButton() {
 		return;
 	}
 
-	const actions = document.querySelector('.gh-header-actions');
-	if (!actions) {
+	const anchor = findButtonAnchor();
+	if (!anchor) {
 		return;
 	}
 
 	const button = createButton();
-	actions.prepend(button);
+	anchor.element[anchor.position](button);
 
 	const response = await sendMessage('build-watch-state');
 	renderButton(button, Boolean(response && response.watching));
 }
 
 function onMessage(message) {
-	if (message.action !== 'build-watch-changed') {
+	if (message.action === 'build-watch-changed') {
+		const button = document.querySelector(`.${buttonClass}`);
+		if (button) {
+			renderButton(button, Boolean(message.watching));
+		}
+
 		return;
 	}
 
-	const button = document.querySelector(`.${buttonClass}`);
-	if (button) {
-		renderButton(button, Boolean(message.watching));
+	// The keyboard shortcut is handled here because the page URL is the only
+	// source the background page trusts to identify the pull request
+	if (message.action === 'request-build-watch-toggle') {
+		const button = document.querySelector(`.${buttonClass}`);
+		if (button) {
+			toggleWatch(button);
+		} else if (getPullRequestNumber()) {
+			sendMessage('toggle-build-watch');
+		}
 	}
 }
 
@@ -107,7 +134,8 @@ function scheduleAddButton() {
 function init() {
 	addButton();
 
-	// GitHub navigates without full page loads, so the header is re-rendered
+	// GitHub renders the header after the script runs and navigates without
+	// full page loads, so the header has to be watched for
 	const observer = new MutationObserver(scheduleAddButton);
 	observer.observe(document.body, {childList: true, subtree: true});
 
