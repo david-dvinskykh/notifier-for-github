@@ -18,6 +18,7 @@ import {
 	showTestBuildNotification,
 	toggleBuildWatch
 } from './lib/builds-service.js';
+import {ensureOffscreenDocument} from './lib/offscreen-service.js';
 import {isChrome, isNotificationTargetPage, parsePullRequestUrl} from './util.js';
 
 const updateAlarm = 'update';
@@ -235,6 +236,12 @@ async function handleTestNotification() {
 	}
 }
 
+async function handleClearBuildResult() {
+	await clearPendingBuildResult();
+	await update();
+	return {cleared: true};
+}
+
 async function handleBuildWatchState(sender) {
 	const pullRequest = await parsePullRequestUrl(sender.url);
 	if (!pullRequest) {
@@ -262,6 +269,14 @@ function onMessage(message, sender) {
 			return handleTestNotification();
 		}
 
+		case 'pending-build-result': {
+			return getPendingBuildResult();
+		}
+
+		case 'clear-build-result': {
+			return handleClearBuildResult();
+		}
+
 		// Other messages, like the offscreen audio playback, are handled elsewhere
 		default: {
 			return undefined;
@@ -287,18 +302,6 @@ function onNotificationClick(id) {
 	}
 
 	openNotification(id);
-}
-
-async function createOffscreenDocument() {
-	if (await browser.offscreen.hasDocument()) {
-		return;
-	}
-
-	await browser.offscreen.createDocument({
-		url: 'offscreen.html',
-		reasons: ['AUDIO_PLAYBACK'],
-		justification: 'To play an audio chime indicating notifications'
-	});
 }
 
 async function addHandlers() {
@@ -333,7 +336,7 @@ async function init() {
 	browser.action.onClicked.addListener(handleBrowserActionClick);
 	browser.commands.onCommand.addListener(onCommand);
 
-	await createOffscreenDocument();
+	await ensureOffscreenDocument();
 	addHandlers();
 	update();
 }

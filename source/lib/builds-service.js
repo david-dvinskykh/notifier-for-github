@@ -4,6 +4,7 @@ import {getPullRequest, getCombinedStatus, getCheckRuns, getGitHubOrigin, getTab
 import {getBuildNotificationTitle, getBuildStateSummary} from './defaults.js';
 import {log, logChecks, logError} from './logger.js';
 import localStore from './local-store.js';
+import {ensureOffscreenDocument} from './offscreen-service.js';
 import {queryPermission} from './permissions-service.js';
 import {openTab} from './tabs-service.js';
 
@@ -189,6 +190,7 @@ async function isNotificationKnown(notificationId) {
 
 async function playNotificationSound() {
 	try {
+		await ensureOffscreenDocument();
 		await browser.runtime.sendMessage({
 			action: 'play',
 			options: {

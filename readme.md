@@ -96,9 +96,13 @@ Enable "Notify me when the checks of a watched pull request finish" in the optio
 
 The keyboard shortcut can be changed on your browser's extension shortcuts page (`chrome://extensions/shortcuts` in Chrome). The in-page button is only added on github.com; on GitHub Enterprise use the keyboard shortcut.
 
+If the result arrives while a GitHub tab is open, it is also shown as a banner in the corner of that page, with a button that opens the checks. The banner appears when you look at the tab, so a result that finished while you were elsewhere is still waiting for you there.
+
 The result also lands on the toolbar icon: a green ✓ or a red ✗ replaces the notification count until you click the icon, which opens the checks of that pull request and restores the count. This is the fallback when the operating system hides notifications from the browser, and it takes precedence over the count and over error badges.
 
-To check that notifications reach you before relying on them, use the "Send a test notification" button in the same options section. It asks for the `notifications` permission if needed and reports what happened. The extension asks the browser afterwards whether the notification is in its list, which separates "the browser refused it" from "the desktop is hiding it"; in the second case the toolbar icon still carries the result.
+To check that notifications reach you before relying on them, use the "Send a test notification" button in the same options section. It asks for the `notifications` permission if needed and reports what happened. The extension asks the browser afterwards whether the notification is in its list, which separates "the browser refused it" from "the desktop is hiding it"; in the second case the toolbar icon and the page banner still carry the result.
+
+If the notification sound is enabled, the offscreen document that plays it is created when the sound is needed, not only at startup, because the service worker and that document are restarted independently.
 
 #### Reading the log
 
