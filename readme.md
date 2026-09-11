@@ -96,6 +96,20 @@ Enable "Notify me when the checks of a watched pull request finish" in the optio
 
 The keyboard shortcut can be changed on your browser's extension shortcuts page (`chrome://extensions/shortcuts` in Chrome). The in-page button is only added on github.com; on GitHub Enterprise use the keyboard shortcut.
 
+To check that notifications reach you before relying on them, use the "Send a test notification" button in the same options section. It asks for the `notifications` permission if needed and reports what happened, so a notification blocked by the operating system can be told apart from one the extension never sent.
+
+#### Reading the log
+
+Every poll is logged. Open `chrome://extensions`, find the extension and click "service worker" to open its console. Each watched pull request logs a collapsed group per poll with a table of every commit status and check run, its state and its URL, followed by the outcome:
+
+```
+[Notifier for GitHub] Checking 1 watched pull request: user/repo#42
+[Notifier for GitHub] user/repo#42 at 1a2b3c4 — failure (3 passed, 1 failed, 0 running)
+[Notifier for GitHub] user/repo#42: 1 of 4 checks failed: test — checks failed
+```
+
+Watching, unwatching, a new head commit, a missing permission and failed API requests are logged the same way, which is the quickest way to tell why no notification arrived.
+
 ### GitHub Enterprise support
 
 By default, the extension works for the public [GitHub](https://github.com) site. If the repo of your company runs GitHub on their own servers via GitHub Enterprise Server, you have to configure the extension to use the API URL. For example `https://github.yourco.com/`.

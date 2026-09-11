@@ -116,6 +116,18 @@ test.serial('summarizeChecks reports failures with their names', t => {
 	t.deepEqual(summary.failedNames, ['ci/lint', 'test']);
 });
 
+test.serial('summarizeChecks lists every check for the log', t => {
+	const summary = builds.summarizeChecks({
+		statuses: [{context: 'ci/lint', state: 'success', target_url: 'https://ci.example.com/1'}], // eslint-disable-line camelcase
+		checkRuns: [{name: 'test', status: 'completed', conclusion: 'failure', html_url: 'https://github.com/checks/2'}] // eslint-disable-line camelcase
+	});
+
+	t.deepEqual(summary.checks, [
+		{name: 'ci/lint', state: 'success', url: 'https://ci.example.com/1'},
+		{name: 'test', state: 'failure', url: 'https://github.com/checks/2'}
+	]);
+});
+
 test.serial('summarizeChecks stays pending when there are no checks yet', t => {
 	const summary = builds.summarizeChecks({statuses: [], checkRuns: []});
 
@@ -211,4 +223,47 @@ test.serial('clicking a build notification opens the checks page', async t => {
 	t.is(browser.notifications.clear.firstCall.args[0], notificationId);
 	t.is(browser.tabs.create.firstCall.args[0].url, 'https://github.com/user/repo/pull/42/checks');
 	t.false(notificationId in t.context.store);
+});
+
+test.serial('the test notification is shown even when the option is off', async t => {
+	browser.storage.sync.get.callsFake((key, cb) => {
+		cb({
+			options: {
+				token: 'a1b2c3d4e5f6g7h8i9j0a1b2c3d4e5f6g7h8i9j0',
+				rootUrl: 'https://github.com/',
+				notifyBuildResults: false,
+				playNotifSound: false
+			}
+		});
+	});
+
+	const result = await builds.showTestBuildNotification();
+
+	t.true(result.shown);
+	t.is(browser.notifications.create.callCount, 1);
+
+	const [notificationId, notification] = browser.notifications.create.firstCall.args;
+	t.true(notificationId.startsWith(builds.buildNotificationPrefix));
+	t.is(notification.title, 'Checks failed');
+
+	// The test notification points at a real page, not at the checks of a made-up pull request
+	t.is(t.context.store[notificationId].url, 'https://github.com/notifications');
+});
+
+test.serial('a check result is not shown when notifications are switched off', async t => {
+	browser.storage.sync.get.callsFake((key, cb) => {
+		cb({
+			options: {
+				token: 'a1b2c3d4e5f6g7h8i9j0a1b2c3d4e5f6g7h8i9j0',
+				rootUrl: 'https://github.com/',
+				notifyBuildResults: false
+			}
+		});
+	});
+
+	const result = await builds.showBuildNotification({owner: 'user', repository: 'repo', number: 42}, {state: 'success', total: 1, passed: 1, failed: 0, failedNames: []});
+
+	t.false(result.shown);
+	t.is(result.reason, 'disabled');
+	t.is(browser.notifications.create.callCount, 0);
 });

@@ -13,6 +13,7 @@ import {
 	getWatchedBuildCount,
 	isWatchingBuild,
 	openBuildNotification,
+	showTestBuildNotification,
 	toggleBuildWatch
 } from './lib/builds-service.js';
 import {isChrome, isNotificationTargetPage, parsePullRequestUrl} from './util.js';
@@ -215,6 +216,10 @@ function onMessage(message, sender) {
 
 		case 'build-watch-state': {
 			return handleBuildWatchState(sender);
+		}
+
+		case 'test-build-notification': {
+			return showTestBuildNotification();
 		}
 
 		// Other messages, like the offscreen audio playback, are handled elsewhere

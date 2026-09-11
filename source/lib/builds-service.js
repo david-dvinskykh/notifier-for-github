@@ -1,7 +1,8 @@
 import browser from 'webextension-polyfill';
 import optionsStorage from '../options-storage.js';
-import {getPullRequest, getCombinedStatus, getCheckRuns, getGitHubOrigin} from './api.js';
+import {getPullRequest, getCombinedStatus, getCheckRuns, getGitHubOrigin, getTabUrl} from './api.js';
 import {getBuildNotificationTitle, getBuildStateSummary} from './defaults.js';
+import {log, logChecks, logError} from './logger.js';
 import localStore from './local-store.js';
 import {queryPermission} from './permissions-service.js';
 import {openTab} from './tabs-service.js';
@@ -84,6 +85,7 @@ export function summarizeChecks({statuses = [], checkRuns = []}) {
 
 	return {
 		state,
+		checks,
 		total: checks.length,
 		passed: passed.length,
 		failed: failed.length,
@@ -130,19 +132,24 @@ export async function watchBuild(pullRequest) {
 		build.url = htmlUrl || build.url;
 	} catch (error) {
 		// The build is still watched, the next check picks up the details
-		console.error(error);
+		logError(`${key}: could not read the pull request (${error.message})`);
 	}
 
 	builds[key] = build;
 	await setWatchedBuilds(builds);
 
+	log(`Watching the checks of ${key}${build.sha ? ` at ${build.sha.slice(0, 7)}` : ''}`);
+
 	return build;
 }
 
 export async function unwatchBuild(pullRequest) {
+	const key = getBuildKey(pullRequest);
 	const builds = await getWatchedBuilds();
-	delete builds[getBuildKey(pullRequest)];
+	delete builds[key];
 	await setWatchedBuilds(builds);
+
+	log(`Stopped watching the checks of ${key}`);
 }
 
 export async function toggleBuildWatch(pullRequest) {
@@ -165,11 +172,12 @@ export function getBuildNotificationObject(build, summary) {
 	};
 }
 
-export async function showBuildNotification(build, summary) {
+export async function showBuildNotification(build, summary, {ignoreSetting = false} = {}) {
 	const {playNotifSound, notifyBuildResults} = await optionsStorage.getAll();
 
-	if (!notifyBuildResults) {
-		return;
+	if (!notifyBuildResults && !ignoreSetting) {
+		log('Notifications for check results are disabled in the options, nothing shown');
+		return {shown: false, reason: 'disabled'};
 	}
 
 	if (playNotifSound) {
@@ -183,12 +191,36 @@ export async function showBuildNotification(build, summary) {
 	}
 
 	if (!await queryPermission('notifications')) {
-		return;
+		log('The notifications permission is missing, nothing shown');
+		return {shown: false, reason: 'permission'};
 	}
 
 	const notificationId = `${buildNotificationPrefix}${getBuildKey(build)}`;
 	await browser.notifications.create(notificationId, getBuildNotificationObject(build, summary));
-	await localStore.set(notificationId, {url: `${build.url}/checks`});
+	await localStore.set(notificationId, {url: build.checksUrl || `${build.url}/checks`});
+
+	return {shown: true};
+}
+
+export async function showTestBuildNotification() {
+	const build = {
+		owner: 'octocat',
+		repository: 'hello-world',
+		number: 1,
+		title: 'This is what a check result looks like',
+		checksUrl: await getTabUrl()
+	};
+
+	const summary = summarizeChecks({
+		statuses: [{context: 'ci/lint', state: 'success'}],
+		checkRuns: [
+			{name: 'test', status: 'completed', conclusion: 'success'},
+			{name: 'build', status: 'completed', conclusion: 'failure'}
+		]
+	});
+
+	log('Sending a test notification');
+	return showBuildNotification(build, summary, {ignoreSetting: true});
 }
 
 export async function openBuildNotification(notificationId) {
@@ -203,11 +235,17 @@ export async function openBuildNotification(notificationId) {
 }
 
 async function checkWatchedBuild(build) {
+	const key = getBuildKey(build);
 	const {head, state: pullRequestState, title, html_url: htmlUrl} = await getPullRequest(build);
 	const reference = head && head.sha;
 
 	if (!reference) {
+		log(`${key}: the pull request has no head commit, retrying on the next run`);
 		return build;
+	}
+
+	if (build.sha && build.sha !== reference) {
+		log(`${key}: new head commit ${reference.slice(0, 7)}, watching its checks instead`);
 	}
 
 	// A new push restarts the checks, so the previous result is not reported
@@ -224,9 +262,13 @@ async function checkWatchedBuild(build) {
 		reference
 	});
 
+	logChecks(`${key} at ${reference.slice(0, 7)}`, summary.checks, summary);
+
 	if (summary.state === 'pending' && pullRequestState === 'open') {
 		return {...updatedBuild, state: 'pending'};
 	}
+
+	log(`${key}: ${getBuildStateSummary(summary)} — ${getBuildNotificationTitle(summary.state).toLowerCase()}`);
 
 	await showBuildNotification(updatedBuild, summary);
 	return undefined;
@@ -240,6 +282,8 @@ export async function checkWatchedBuilds() {
 		return;
 	}
 
+	log(`Checking ${keys.length} watched pull request${keys.length === 1 ? '' : 's'}: ${keys.join(', ')}`);
+
 	const updatedBuilds = {};
 
 	for (const key of keys) {
@@ -250,7 +294,7 @@ export async function checkWatchedBuilds() {
 			}
 		} catch (error) {
 			// Keep watching, a failed request is retried on the next run
-			console.error(error);
+			logError(`${key}: could not read the checks (${error.message}), retrying on the next run`);
 			updatedBuilds[key] = builds[key];
 		}
 	}
