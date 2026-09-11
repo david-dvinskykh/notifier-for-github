@@ -7,6 +7,7 @@ import {makeApiRequest, getNotifications, getTabUrl, getGitHubOrigin} from './ap
 import {getNotificationReasonText} from './defaults.js';
 import {openTab} from './tabs-service.js';
 import localStore from './local-store.js';
+import {ensureOffscreenDocument} from './offscreen-service.js';
 import {queryPermission} from './permissions-service.js';
 
 function getLastReadForNotification(notification) {
@@ -125,6 +126,7 @@ export async function showNotifications(notifications) {
 }
 
 export async function playNotificationSound() {
+	await ensureOffscreenDocument();
 	await browser.runtime.sendMessage({
 		action: 'play',
 		options: {

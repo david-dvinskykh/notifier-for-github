@@ -1,5 +1,6 @@
 import browser from 'webextension-polyfill';
 import {findButtonAnchor, getPullRequestNumber as parseNumber, titleTextSelectors} from './lib/pr-header.js';
+import {removeResultToast, renderResultToast} from './lib/result-toast.js';
 
 const buttonClass = 'notifier-for-github-watch-build';
 
@@ -118,6 +119,46 @@ function onMessage(message) {
 	}
 }
 
+// The desktop can hide notifications from the browser, so the finished result
+// is also offered on the page itself when the tab is looked at
+let shownResultKey;
+
+async function showPendingResult() {
+	if (document.hidden) {
+		return;
+	}
+
+	let result;
+	try {
+		result = await browser.runtime.sendMessage({action: 'pending-build-result'});
+	} catch {
+		return;
+	}
+
+	if (!result) {
+		shownResultKey = undefined;
+		removeResultToast();
+		return;
+	}
+
+	if (result.key === shownResultKey) {
+		return;
+	}
+
+	shownResultKey = result.key;
+	renderResultToast(result, {
+		onOpen() {
+			removeResultToast();
+			browser.runtime.sendMessage({action: 'clear-build-result'});
+			location.href = result.url;
+		},
+		onDismiss() {
+			removeResultToast();
+			browser.runtime.sendMessage({action: 'clear-build-result'});
+		}
+	});
+}
+
 let scheduled = false;
 function scheduleAddButton() {
 	if (scheduled) {
@@ -142,6 +183,10 @@ function init() {
 	document.addEventListener('turbo:load', scheduleAddButton);
 	document.addEventListener('pjax:end', scheduleAddButton);
 	browser.runtime.onMessage.addListener(onMessage);
+
+	showPendingResult();
+	document.addEventListener('visibilitychange', showPendingResult);
+	setInterval(showPendingResult, 30_000);
 }
 
 init();
