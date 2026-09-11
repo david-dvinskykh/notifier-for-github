@@ -31,6 +31,10 @@ export function renderCount(count) {
 	render(getCountString(count), color, title);
 }
 
+export function renderBuildResult({state, title}) {
+	render(defaults.getBuildBadgeSymbol(state), defaults.getBuildBadgeColor(state), title);
+}
+
 export function renderError(error) {
 	const color = defaults.getBadgeErrorColor();
 	const {symbol, title} = getErrorData(error);

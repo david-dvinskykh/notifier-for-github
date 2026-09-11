@@ -47,7 +47,9 @@ function initTestNotification() {
 			const response = await browser.runtime.sendMessage({action: 'test-build-notification'});
 
 			if (response && response.shown) {
-				result.textContent = ' Sent. If nothing appeared, look in the notification centre of your operating system.';
+				result.textContent = response.accepted ?
+					' The browser accepted the notification. If nothing appeared on screen, your operating system is hiding notifications from the browser; the toolbar icon now shows the result instead.' :
+					' Sent, but the browser does not list it. See the extension log.';
 				return;
 			}
 
