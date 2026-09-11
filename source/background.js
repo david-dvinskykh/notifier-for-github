@@ -37,7 +37,9 @@ async function scheduleNextAlarm(interval) {
 }
 
 async function scheduleBuildsAlarm() {
-	browser.alarms.clear(buildsAlarm);
+	// The alarm is cleared before a new one is created, otherwise the pending
+	// clear can remove the alarm that was just scheduled
+	await browser.alarms.clear(buildsAlarm);
 
 	if (await getWatchedBuildCount() === 0) {
 		return;
@@ -195,6 +197,15 @@ async function handleToggleBuildWatch(message, sender) {
 	return result;
 }
 
+async function handleTestNotification() {
+	try {
+		return await showTestBuildNotification();
+	} catch (error) {
+		console.error(error);
+		return {shown: false, reason: 'error', message: error.message};
+	}
+}
+
 async function handleBuildWatchState(sender) {
 	const pullRequest = await parsePullRequestUrl(sender.url);
 	if (!pullRequest) {
@@ -219,7 +230,7 @@ function onMessage(message, sender) {
 		}
 
 		case 'test-build-notification': {
-			return showTestBuildNotification();
+			return handleTestNotification();
 		}
 
 		// Other messages, like the offscreen audio playback, are handled elsewhere

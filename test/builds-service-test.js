@@ -60,6 +60,7 @@ test.beforeEach(t => {
 	});
 
 	browser.notifications.create.resolves('id');
+	browser.notifications.getPermissionLevel.returns('granted');
 	browser.notifications.clear.resolves(true);
 	browser.permissions.contains.resolves(true);
 	browser.runtime.getURL.returns('icon-notif.png');
@@ -266,4 +267,34 @@ test.serial('a check result is not shown when notifications are switched off', a
 	t.false(result.shown);
 	t.is(result.reason, 'disabled');
 	t.is(browser.notifications.create.callCount, 0);
+});
+
+test.serial('nothing is shown when the browser blocks notifications from extensions', async t => {
+	browser.notifications.getPermissionLevel.returns('denied');
+
+	const result = await builds.showTestBuildNotification();
+
+	t.false(result.shown);
+	t.is(result.reason, 'blocked');
+	t.is(browser.notifications.create.callCount, 0);
+});
+
+test.serial('a failing notification sound does not swallow the notification', async t => {
+	browser.storage.sync.get.callsFake((key, cb) => {
+		cb({
+			options: {
+				token: 'a1b2c3d4e5f6g7h8i9j0a1b2c3d4e5f6g7h8i9j0',
+				rootUrl: 'https://github.com/',
+				notifyBuildResults: true,
+				playNotifSound: true
+			}
+		});
+	});
+
+	browser.runtime.sendMessage.rejects(new Error('Could not establish connection'));
+
+	const result = await builds.showTestBuildNotification();
+
+	t.true(result.shown);
+	t.is(browser.notifications.create.callCount, 1);
 });
