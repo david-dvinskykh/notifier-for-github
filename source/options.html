@@ -61,6 +61,12 @@
 			<input type="number" name="buildPollInterval" min="60" step="30" value="60">
 		</label>
 		<p class="small">How often the checks of watched pull requests are polled, in seconds. Browsers do not run extension timers more often than once a minute, so values below 60 are raised to 60.</p>
+
+		<p class="small">
+			<button type="button" id="test-notification">Send a test notification</button>
+			<span id="test-notification-result"></span>
+		</p>
+		<p class="small">Every poll is logged with each check and its result. Open <code>chrome://extensions</code>, find this extension and click “service worker” to read the log.</p>
 	</section>
 
 	<hr>

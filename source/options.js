@@ -1,12 +1,13 @@
 import browser from 'webextension-polyfill';
 import optionsStorage from './options-storage.js';
 import initRepositoriesForm from './repositories.js';
-import {requestPermission} from './lib/permissions-service.js';
+import {queryPermission, requestPermission} from './lib/permissions-service.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
 	try {
 		await initOptionsForm();
 		await initRepositoriesForm();
+		initTestNotification();
 		initGlobalSyncListener();
 	} catch (error) {
 		console.error(error);
@@ -16,6 +17,33 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initGlobalSyncListener() {
 	document.addEventListener('options-sync:form-synced', () => {
 		browser.runtime.sendMessage({action: 'update'});
+	});
+}
+
+function initTestNotification() {
+	const button = document.querySelector('#test-notification');
+	const result = document.querySelector('#test-notification-result');
+
+	button.addEventListener('click', async () => {
+		button.disabled = true;
+		result.textContent = '';
+
+		try {
+			if (!await queryPermission('notifications') && !await requestPermission('notifications')) {
+				result.textContent = ' The notifications permission was not granted.';
+				return;
+			}
+
+			const response = await browser.runtime.sendMessage({action: 'test-build-notification'});
+			result.textContent = response && response.shown ?
+				' Sent. If nothing appeared, check the notification settings of your operating system.' :
+				' The browser did not show it, see the extension log for the reason.';
+		} catch (error) {
+			console.error(error);
+			result.textContent = ` Failed: ${error.message}`;
+		} finally {
+			button.disabled = false;
+		}
 	});
 }
 
