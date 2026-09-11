@@ -8,8 +8,8 @@
 		"lint-fix": "run-p 'lint:* -- --fix'",
 		"test": "run-s lint:* test:* build",
 		"test:js": "ava",
-		"build": "parcel build source/manifest.json source/offscreen.html --dist-dir distribution --no-cache --no-content-hash --no-source-maps --no-optimize --no-scope-hoist --detailed-report 0",
-		"watch": "parcel watch source/manifest.json source/offscreen.html --dist-dir distribution --no-cache --no-hmr"
+		"build": "parcel build source/manifest.json source/offscreen.html source/toast.html --dist-dir distribution --no-cache --no-content-hash --no-source-maps --no-optimize --no-scope-hoist --detailed-report 0",
+		"watch": "parcel watch source/manifest.json source/offscreen.html source/toast.html --dist-dir distribution --no-cache --no-hmr"
 	},
 	"browserslist": [
 		"Chrome 74",

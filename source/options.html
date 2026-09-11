@@ -54,6 +54,16 @@
 			<input type="checkbox" name="notifyBuildResults" data-request-permission="notifications">
 			Notify me when the checks of a watched pull request finish
 		</label>
+		<label>
+			<h4>Notification style</h4>
+			<select name="buildNotificationStyle">
+				<option value="desktop">Desktop notification</option>
+				<option value="window">Pop-up window</option>
+				<option value="both">Both</option>
+			</select>
+		</label>
+		<p class="small">A desktop notification is handed to the operating system, which decides whether to show it. A pop-up window is a small window of the browser itself: it always appears, closes after ten seconds and opens the checks when clicked.</p>
+
 		<p class="small">Open a pull request on GitHub and press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> or use the “Watch checks” button in the pull request header to watch its checks. The shortcut can be changed on the browser's extension shortcuts page.</p>
 
 		<label>

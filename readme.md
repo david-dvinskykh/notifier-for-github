@@ -92,7 +92,11 @@ Open a pull request on GitHub and press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>B</
 
 The watch is removed as soon as the result is reported, and pressing the shortcut or clicking the button again stops watching. When the branch receives a new push, the checks of the new head commit are watched instead.
 
-Enable "Notify me when the checks of a watched pull request finish" in the options to receive these notifications; it asks for the `notifications` permission. The polling interval defaults to 60 seconds and can be changed in the same section. Browsers do not run extension alarms more often than once a minute, so lower values are raised to 60 seconds.
+Enable "Notify me when the checks of a watched pull request finish" in the options to receive these notifications; it asks for the `notifications` permission. The "Notification style" setting next to it decides how the result is announced:
+
+- **Desktop notification** (default): the usual notification, handed to the operating system, which decides whether to show it.
+- **Pop-up window**: a small window of the browser itself, in the corner of the screen. It always appears, whatever the notification settings of the browser and of the system are, closes after ten seconds and opens the checks when clicked. A second result that arrives while it is open is added to the same window instead of opening another one.
+- **Both**: the two together. The polling interval defaults to 60 seconds and can be changed in the same section. Browsers do not run extension alarms more often than once a minute, so lower values are raised to 60 seconds.
 
 The keyboard shortcut can be changed on your browser's extension shortcuts page (`chrome://extensions/shortcuts` in Chrome). The in-page button is only added on github.com; on GitHub Enterprise use the keyboard shortcut.
 

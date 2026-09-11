@@ -66,7 +66,9 @@ test.beforeEach(t => {
 	));
 	browser.notifications.clear.resolves(true);
 	browser.permissions.contains.resolves(true);
-	browser.runtime.getURL.returns('icon-notif.png');
+	browser.runtime.getURL.callsFake(path => `chrome-extension://id/${path}`);
+	browser.windows.create.resolves({id: 7});
+	browser.windows.update.resolves({id: 7});
 	browser.tabs.query.resolves([]);
 	browser.tabs.create.resolves(true);
 
@@ -328,4 +330,71 @@ test.serial('the test notification reports whether the browser accepted it', asy
 
 	t.true(result.shown);
 	t.true(result.accepted);
+});
+
+function useStyle(style) {
+	browser.storage.sync.get.callsFake((key, cb) => {
+		cb({
+			options: {
+				token: 'a1b2c3d4e5f6g7h8i9j0a1b2c3d4e5f6g7h8i9j0',
+				rootUrl: 'https://github.com/',
+				notifyBuildResults: true,
+				playNotifSound: false,
+				buildNotificationStyle: style
+			}
+		});
+	});
+}
+
+test.serial('the pop-up window style opens a window instead of a desktop notification', async t => {
+	useStyle('window');
+
+	const result = await builds.showTestBuildNotification();
+
+	t.true(result.shown);
+	t.is(result.via, 'window');
+	t.is(browser.notifications.create.callCount, 0);
+	t.is(browser.windows.create.callCount, 1);
+
+	const [createData] = browser.windows.create.firstCall.args;
+	t.is(createData.type, 'popup');
+	t.true(createData.url.startsWith('chrome-extension://id/toast.html?'));
+
+	const {searchParams} = new URL(createData.url);
+	t.is(searchParams.get('title'), 'Checks failed');
+	t.is(searchParams.get('key'), 'octocat/hello-world#1');
+	t.is(searchParams.get('summary'), '1 of 3 checks failed: build');
+	t.is(searchParams.get('url'), 'https://github.com/notifications');
+});
+
+test.serial('an open notification window is reused instead of stacking windows', async t => {
+	useStyle('window');
+	browser.runtime.sendMessage.resolves({received: true});
+	t.context.store.resultWindowId = 7;
+
+	const result = await builds.showTestBuildNotification();
+
+	t.true(result.shown);
+	t.is(browser.windows.create.callCount, 0);
+	t.is(browser.windows.update.firstCall.args[0], 7);
+});
+
+test.serial('both styles show the result twice when chosen', async t => {
+	useStyle('both');
+
+	const result = await builds.showTestBuildNotification();
+
+	t.true(result.shown);
+	t.is(browser.windows.create.callCount, 1);
+	t.is(browser.notifications.create.callCount, 1);
+});
+
+test.serial('the desktop style is used when nothing is chosen', async t => {
+	useStyle(undefined);
+
+	const result = await builds.showTestBuildNotification();
+
+	t.is(result.via, 'desktop');
+	t.is(browser.windows.create.callCount, 0);
+	t.is(browser.notifications.create.callCount, 1);
 });

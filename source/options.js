@@ -46,6 +46,11 @@ function initTestNotification() {
 
 			const response = await browser.runtime.sendMessage({action: 'test-build-notification'});
 
+			if (response && response.via === 'window') {
+				result.textContent = ' A notification window was opened.';
+				return;
+			}
+
 			if (response && response.shown) {
 				result.textContent = response.accepted ?
 					' The browser accepted the notification. If nothing appeared on screen, your operating system is hiding notifications from the browser; the toolbar icon now shows the result instead.' :
